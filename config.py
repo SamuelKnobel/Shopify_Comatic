@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     comatic_vat_mapping: str = "{}"  # Parsed as json
     comatic_payment_accounts: str = "{}" # JSON Mapping: "Name": "AccountCode"
     order_docs_dir: str = "documents"
+    eur_chf_rate: float = 0.95
 
     # ── SQLite ───────────────────────────────────────────────────────────────────
     sqlite_db_path: str = "sync.db"

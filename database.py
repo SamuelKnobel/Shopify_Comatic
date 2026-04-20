@@ -26,6 +26,8 @@ CREATE TABLE IF NOT EXISTS synced_orders (
     comatic_invoice_id  INTEGER,
     comatic_address_id  INTEGER,
     country_code        TEXT,
+    vat_reason          TEXT,
+    chf_amount          REAL,
     sync_status         TEXT    NOT NULL DEFAULT 'pending',
     error_message       TEXT,
     synced_at           TEXT,
@@ -48,12 +50,38 @@ CREATE TABLE IF NOT EXISTS sync_runs (
 
 
 async def init_db() -> None:
-    """Create tables if they don't exist. Call once at startup."""
+    """Create tables if they don't exist and run migrations."""
     async with aiosqlite.connect(settings.sqlite_db_path) as db:
         await db.execute(CREATE_SYNCED_ORDERS)
         await db.execute(CREATE_SYNC_RUNS)
         await db.commit()
-    logger.info("Database initialised at {path}", path=settings.sqlite_db_path)
+    
+    # Run column migrations for existing databases
+    await migrate_db()
+    logger.info("Database initialised and migrated at {path}", path=settings.sqlite_db_path)
+
+
+async def migrate_db() -> None:
+    """Safely adds missing columns to existing tables."""
+    columns_to_add = {
+        "synced_orders": [
+            ("vat_reason", "TEXT"),
+            ("chf_amount", "REAL"),
+        ]
+    }
+    
+    async with aiosqlite.connect(settings.sqlite_db_path) as db:
+        for table, cols in columns_to_add.items():
+            # Check existing columns
+            async with db.execute(f"PRAGMA table_info({table})") as cursor:
+                existing_cols = {row[1] for row in await cursor.fetchall()}
+                
+            for col_name, col_type in cols:
+                if col_name not in existing_cols:
+                    logger.info("Migrating DB: Adding column {c} to {t}", c=col_name, t=table)
+                    await db.execute(f"ALTER TABLE {table} ADD COLUMN {col_name} {col_type}")
+        
+        await db.commit()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -82,6 +110,8 @@ async def mark_order_synced(
     comatic_invoice_id: Optional[int],
     comatic_address_id: Optional[int],
     country_code: str = "CH",
+    vat_reason: Optional[str] = None,
+    chf_amount: Optional[float] = None,
 ) -> None:
     """Upsert a successfully synced order record."""
     now = datetime.now(timezone.utc).isoformat()
@@ -91,8 +121,9 @@ async def mark_order_synced(
             INSERT INTO synced_orders
                 (shopify_order_id, shopify_order_name, customer_email, financial_status,
                  payment_gateway, total_price, currency, comatic_invoice_id,
-                 comatic_address_id, country_code, sync_status, synced_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'synced', ?)
+                 comatic_address_id, country_code, vat_reason, chf_amount,
+                 sync_status, synced_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'synced', ?)
             ON CONFLICT(shopify_order_id) DO UPDATE SET
                 sync_status         = 'synced',
                 financial_status    = excluded.financial_status,
@@ -100,13 +131,16 @@ async def mark_order_synced(
                 comatic_invoice_id  = excluded.comatic_invoice_id,
                 comatic_address_id  = excluded.comatic_address_id,
                 country_code        = excluded.country_code,
+                vat_reason          = excluded.vat_reason,
+                chf_amount          = excluded.chf_amount,
                 error_message       = NULL,
                 synced_at           = excluded.synced_at
             """,
             (
                 str(shopify_order_id), shopify_order_name, customer_email,
                 financial_status, payment_gateway, total_price, currency,
-                comatic_invoice_id, comatic_address_id, country_code, now,
+                comatic_invoice_id, comatic_address_id, country_code, 
+                vat_reason, chf_amount, now,
             ),
         )
         await db.commit()

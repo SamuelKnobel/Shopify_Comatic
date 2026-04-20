@@ -19,31 +19,17 @@ class TaxMapper:
             logger.error("Failed to parse COMATIC_VAT_MAPPING from .env. Using empty mapping.")
             self.mapping = {}
 
-    def get_vat_code(self, country_code: str, rate: float, product_type: str | None = None) -> str:
+    def get_vat_info(self, country_code: str, rate: float, product_type: str | None = None) -> tuple[str, str]:
         """
-        Sophisticated lookup for the Comatic VAT code.
-        
-        Logic:
-        1. Check if the country exists in the mapping.
-        2. Identify the category derived from the rate (Standard vs Reduced).
-           - This handles the (Suplements vs Cosmetics) case automatically because 
-             Shopify calculates different rates for them.
-        3. Fallback to default if no match.
+        Calculates the VAT code AND returns a human-readable reason for the choice.
+        Returns: (code, reason)
         """
         country_map = self.mapping.get(country_code)
         if not country_map:
-            logger.debug("No VAT mapping for country {cc}. Using default.", cc=country_code)
-            return settings.comatic_default_vat_code
+            return settings.comatic_default_vat_code, f"Fallback: No mapping for country {country_code}"
 
-        # Heuristic for Standard vs Reduced (can be refined or made explicit in config)
-        # For simplicity, we compare the rate against common thresholds.
-        # But a better way is to look up the rate directly in the mapping keys.
-        
-        # We'll search for the closest rate key in the mapping for that country
+        # Determine category based on rate heuristics
         category = "Standard"
-        # Example dummy mapping in .env: {"CH": {"Standard": "NN", "Reduced": "HB"}}
-        
-        # Determine category based on common rates if not explicitly keyed by float
         if country_code == "CH":
             if abs(rate - 0.081) < 0.005: category = "Standard"
             elif abs(rate - 0.026) < 0.005: category = "Reduced"
@@ -57,18 +43,15 @@ class TaxMapper:
             code = country_map.get(str(rate))
             
         if not code:
-            code = settings.comatic_default_vat_code
-            logger.warning(
-                "TaxMapper: No code found for {cc} rate={r} cat={cat}. Fallback={f}",
-                cc=country_code, r=rate, cat=category, f=code
-            )
-        else:
-            logger.debug(
-                "TaxMapper: {cc} rate={r} -> {code} ({cat})",
-                cc=country_code, r=rate, code=code, cat=category
-            )
-            
-        return str(code)
+            return settings.comatic_default_vat_code, f"Fallback: {country_code} ({rate*100}%) matched no category"
+
+        reason = f"{country_code} {category} Rate ({rate*100}%)"
+        return str(code), reason
+
+    def get_vat_code(self, country_code: str, rate: float, product_type: str | None = None) -> str:
+        """Original signature for backward compatibility."""
+        code, _ = self.get_vat_info(country_code, rate, product_type)
+        return code
 
 # Global singleton
 tax_mapper = TaxMapper()

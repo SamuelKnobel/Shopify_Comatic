@@ -115,7 +115,7 @@ async def _build_invoice_rows(
                 logger.warning("Could not fetch product {id} details: {err}", id=item.product_id, err=e)
 
         rate = item.effective_tax_rate
-        vat_code = tax_mapper.get_vat_code(country_code, rate, product_type)
+        vat_code, _ = tax_mapper.get_vat_info(country_code, rate, product_type)
         
         # Calculate line discount (if any)
         discount_amount = discount_map.get(item.id, 0.0)
@@ -137,7 +137,7 @@ async def _build_invoice_rows(
     # 3. Add Shipping Lines
     for ship in order.shipping_lines:
         rate = ship.effective_tax_rate
-        vat_code = tax_mapper.get_vat_code(country_code, rate, "Shipping")
+        vat_code, _ = tax_mapper.get_vat_info(country_code, rate, "Shipping")
         
         rows.append(
             ComaticInvoiceDetailRow(
@@ -230,7 +230,21 @@ async def _process_order(
             )
             await comatic.create_payment_on_account(address_id, payment_body)
 
-        # ── Step 5: Mark Synced ───────────────────────────────────────────────
+        # ── Step 5: Transparency Data ─────────────────────────────────────────
+        main_rate = 0.0
+        if order.line_items:
+            main_rate = order.line_items[0].effective_tax_rate
+        elif order.shipping_lines:
+            main_rate = order.shipping_lines[0].effective_tax_rate
+            
+        _, vat_reason = tax_mapper.get_vat_info(order.country_code, main_rate)
+        
+        # Currency conversion: Only apply rate if Shopify order is NOT in CHF
+        if order.currency.upper() == "CHF":
+            chf_amount = order.total_price_float
+        else:
+            chf_amount = round(order.total_price_float * settings.eur_chf_rate, 2)
+
         await mark_order_synced(
             shopify_order_id=order_id,
             shopify_order_name=order.name,
@@ -241,6 +255,9 @@ async def _process_order(
             currency=order.currency,
             comatic_invoice_id=comatic_invoice_id,
             comatic_address_id=address_id,
+            country_code=order.country_code,
+            vat_reason=vat_reason,
+            chf_amount=chf_amount,
         )
         return True
 

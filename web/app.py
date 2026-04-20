@@ -10,13 +10,24 @@ from fastapi.templating import Jinja2Templates
 from loguru import logger
 
 from config import settings
-from database import get_recent_orders, get_pending_orders, update_order_paid, get_order_by_shopify_id
+from database import (
+    init_db,
+    get_recent_orders, 
+    get_pending_orders, 
+    update_order_paid, 
+    get_order_by_shopify_id
+)
 from services.sync_engine import run_sync
 from services.comatic_client import ComaticClient
 from services.shopify_client import ShopifyClient
 from services.analytics import get_vat_liability_stats
 
 app = FastAPI(title="Shopify-Comatic Premium Accountant Helper")
+
+@app.on_event("startup")
+async def startup_event():
+    """Ensure DB is running and migrated."""
+    await init_db()
 
 # Templates & Static Files
 templates = Jinja2Templates(directory="web/templates")
@@ -49,18 +60,22 @@ async def dashboard(request: Request):
             synced_count = sum(1 for o in recent if o.get("sync_status") == "synced")
             success_rate = int((synced_count / total_recent) * 100)
 
-        # Create a robust context object
+        # Premium Summary Context
         context = {
             "request": request,
             "pending": pending or [],
             "recent": recent or [],
-            "vat": vat_stats or {"by_country": [], "totals": {"tax": 0.0, "taxable": 0.0}},
+            "vat": vat_stats or {"by_country": [], "totals": {"tax": 0.0, "taxable": 0.0}, "kpis": {}},
             "bank_accounts": bank_accounts,
             "settings": settings,
             "summary": {
                 "total": total_recent,
                 "pending": pending_count,
                 "success_rate": success_rate,
+                "rev_eur": vat_stats["kpis"]["rev_24h_eur"],
+                "rev_chf": vat_stats["kpis"]["rev_24h_chf"],
+                "vat_alerts": vat_stats["kpis"]["vat_alerts"],
+                "pending_chf": vat_stats["kpis"]["pending_chf"]
             }
         }
         
@@ -133,3 +148,26 @@ async def mark_as_paid(order_id: str, bank_account: str = Form(...)):
     except Exception as e:
         logger.error(f"Reconciliation failed: {e}")
         return RedirectResponse(url=f"/?error=Failed: {str(e)}", status_code=303)
+
+@app.get("/logs/{order_name}")
+async def get_order_logs(order_name: str):
+    """
+    Search the log file for entries matching the order name.
+    Simple disk-based implementation for Accountant Tool.
+    """
+    import os
+    if not os.path.exists(settings.log_file):
+        return {"logs": ["Log file not found."]}
+    
+    matches = []
+    try:
+        with open(settings.log_file, "r") as f:
+            # Get last 1000 lines to avoid memory issues
+            lines = f.readlines()[-1000:]
+            for line in lines:
+                if order_name in line:
+                    matches.append(line.strip())
+    except Exception as e:
+        return {"logs": [f"Error reading logs: {e}"]}
+    
+    return {"logs": matches or ["No matching log entries found for this order."]}
