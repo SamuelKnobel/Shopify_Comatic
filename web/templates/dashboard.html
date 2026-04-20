@@ -76,6 +76,7 @@
         <tr>
           <th>Order</th>
           <th>Customer</th>
+          <th>Country</th>
           <th>Amount</th>
           <th>Gateway</th>
           <th>Comatic Invoice</th>
@@ -89,6 +90,9 @@
           <td><span class="order-name">{{ o.shopify_order_name or o.shopify_order_id }}</span></td>
           <td>
             <div>{{ o.customer_email or '—' }}</div>
+          </td>
+          <td>
+            <span class="badge badge-blue">{{ o.country_code or '??' }}</span>
           </td>
           <td class="amount">
             {{ "%.2f"|format(o.total_price or 0) }}

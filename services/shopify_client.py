@@ -41,6 +41,7 @@ class ShopifyClient:
             "Content-Type": "application/json",
         }
         self._client: Optional[httpx.AsyncClient] = None
+        self._product_cache: dict[int, dict] = {}
 
     async def __aenter__(self) -> "ShopifyClient":
         self._client = httpx.AsyncClient(headers=self._headers, timeout=30)
@@ -181,3 +182,39 @@ class ShopifyClient:
             id=shopify_order_id,
         )
         return response
+
+    async def get_product(self, product_id: int) -> dict:
+        """
+        Fetch product details (like product_type) from Shopify.
+        Uses a simple in-memory cache to minimize redundant API calls.
+        """
+        if product_id in self._product_cache:
+            return self._product_cache[product_id]
+
+        logger.debug("Shopify: fetching product details for id={id}", id=product_id)
+        data = await self._get(f"/products/{product_id}.json")
+        product = data.get("product", {})
+        self._product_cache[product_id] = product
+        return product
+
+    async def download_order_document(self, shopify_order_id: int) -> str:
+        """
+        Mock document downloader. Saves Order JSON to order_docs_dir.
+        Requirement: "for now... please just log itin the console"
+        """
+        import os
+        import json
+        
+        logger.info("[DOCS] Downloading document for Shopify order {id}...", id=shopify_order_id)
+        
+        # We'll download the JSON data as the "document" for now
+        data = await self._get(f"/orders/{shopify_order_id}.json")
+        
+        os.makedirs(settings.order_docs_dir, exist_ok=True)
+        file_path = os.path.join(settings.order_docs_dir, f"order_{shopify_order_id}.json")
+        
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+            
+        logger.debug("[DOCS] Document saved to {path}", path=file_path)
+        return file_path

@@ -21,8 +21,12 @@ class Settings(BaseSettings):
     comatic_default_purchase_condition: str = "30"
     comatic_default_stock_location: int = 1
     comatic_default_vat_type: int = 1
-    comatic_default_charge_factor: float = 1.0
     comatic_default_accounting_rate: float = 1.0
+
+    # ── Accountant Settings ─────────────────────────────────────────────────────
+    comatic_shipping_article_id: int = 9000
+    comatic_vat_mapping: str = "{}"  # Parsed as json
+    order_docs_dir: str = "documents"
 
     # ── SQLite ───────────────────────────────────────────────────────────────────
     sqlite_db_path: str = "sync.db"

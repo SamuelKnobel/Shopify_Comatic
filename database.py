@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS synced_orders (
     currency            TEXT,
     comatic_invoice_id  INTEGER,
     comatic_address_id  INTEGER,
+    country_code        TEXT,
     sync_status         TEXT    NOT NULL DEFAULT 'pending',
     error_message       TEXT,
     synced_at           TEXT,
@@ -80,6 +81,7 @@ async def mark_order_synced(
     currency: str,
     comatic_invoice_id: Optional[int],
     comatic_address_id: Optional[int],
+    country_code: str = "CH",
 ) -> None:
     """Upsert a successfully synced order record."""
     now = datetime.now(timezone.utc).isoformat()
@@ -89,21 +91,22 @@ async def mark_order_synced(
             INSERT INTO synced_orders
                 (shopify_order_id, shopify_order_name, customer_email, financial_status,
                  payment_gateway, total_price, currency, comatic_invoice_id,
-                 comatic_address_id, sync_status, synced_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'synced', ?)
+                 comatic_address_id, country_code, sync_status, synced_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'synced', ?)
             ON CONFLICT(shopify_order_id) DO UPDATE SET
                 sync_status         = 'synced',
                 financial_status    = excluded.financial_status,
                 payment_gateway     = excluded.payment_gateway,
                 comatic_invoice_id  = excluded.comatic_invoice_id,
                 comatic_address_id  = excluded.comatic_address_id,
+                country_code        = excluded.country_code,
                 error_message       = NULL,
                 synced_at           = excluded.synced_at
             """,
             (
                 str(shopify_order_id), shopify_order_name, customer_email,
                 financial_status, payment_gateway, total_price, currency,
-                comatic_invoice_id, comatic_address_id, now,
+                comatic_invoice_id, comatic_address_id, country_code, now,
             ),
         )
         await db.commit()

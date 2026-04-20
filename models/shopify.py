@@ -13,6 +13,11 @@ class ShopifyMoneyAmount(BaseModel):
     currency_code: str
 
 
+class ShopifyProduct(BaseModel):
+    id: int
+    product_type: Optional[str] = None
+
+
 class ShopifyAddress(BaseModel):
     first_name: Optional[str] = None
     last_name: Optional[str] = None
@@ -52,6 +57,20 @@ class ShopifyLineItem(BaseModel):
         return sum(float(t.get("rate", 0)) for t in self.tax_lines)
 
 
+class ShopifyShippingLine(BaseModel):
+    title: str
+    price: str
+    tax_lines: list[dict] = Field(default_factory=list)
+
+    @property
+    def price_float(self) -> float:
+        return float(self.price)
+
+    @property
+    def effective_tax_rate(self) -> float:
+        return sum(float(t.get("rate", 0)) for t in self.tax_lines)
+
+
 class ShopifyCustomer(BaseModel):
     id: int
     email: Optional[str] = None
@@ -78,6 +97,8 @@ class ShopifyOrder(BaseModel):
     billing_address: Optional[ShopifyAddress] = None
     shipping_address: Optional[ShopifyAddress] = None
     line_items: list[ShopifyLineItem] = Field(default_factory=list)
+    shipping_lines: list[ShopifyShippingLine] = Field(default_factory=list)
+    total_discounts: str = "0.00"
     tags: str = ""
     note: Optional[str] = None
 

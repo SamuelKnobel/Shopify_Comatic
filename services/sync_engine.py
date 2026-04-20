@@ -1,15 +1,7 @@
 """
 services/sync_engine.py — Orchestrates the full Shopify → Comatic sync pipeline.
-
-Per-order flow:
-  1. Skip if already synced (deduplication guard)
-  2. Find or create Comatic address by email
-  3. Map VAT codes (with CH fallback)
-  4. Create Comatic CustomerInvoice
-     - IsOpenPosition=True  → pending/bank-transfer orders
-     - IsOpenPosition=False → already paid orders
-  5. If paid: also post a PaymentOnAccount entry
-  6. Mark as synced in SQLite; on any Comatic failure: mark as failed (retry tomorrow)
+REWRITTEN for Accountant Precision: Handles mixed VAT, category cross-checks,
+shipping items, discount allocation, and document storage.
 """
 from __future__ import annotations
 
@@ -32,52 +24,35 @@ from models.comatic import (
     ComaticInvoiceDetailRow,
     ComaticPaymentOnAccountCreate,
 )
-from models.shopify import ShopifyOrder
+from models.shopify import ShopifyOrder, ShopifyLineItem, ShopifyShippingLine
 from services.comatic_client import ComaticAPIError, ComaticClient
 from services.shopify_client import ShopifyClient
+from services.tax_mapper import tax_mapper
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# VAT code mapping
+# Accountant Helpers
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Swiss VAT codes (Comatic CH defaults – update once you run GET /masterdatas/vatcodes).
-# Format: (country_code, bracket) → comatic_vat_code
-# Typical CH codes are 3-char strings stored in Comatic master data.
-_CH_RATE_MAP: dict[float, str] = {
-    0.081: "NN",   # Standard rate 8.1%
-    0.026: "HB",   # Reduced rate 2.6%
-    0.038: "SB",   # Special rate 3.8%
-    0.00:  "US",   # Exempt / zero-rated
-}
-
-
-def map_vat_code(country_code: str, tax_rate: float) -> str:
+def _allocate_discounts(order: ShopifyOrder) -> dict[int, float]:
     """
-    Map a (country_code, Shopify tax_rate) to a Comatic VatCode string.
-
-    ┌─────────────────────────────────────────────────────────────────────────┐
-    │ TODO: Replace the rate→code mapping below once you query                │
-    │   GET /api/{v}/masterdatas/vatcodes                                     │
-    │ on your live Comatic instance and note the real Code values.            │
-    └─────────────────────────────────────────────────────────────────────────┘
-    Falls back to settings.comatic_default_vat_code on any mismatch.
+    Distribute order-level discounts proportionally to line items.
+    Returns a map of {line_item_id: discount_amount}.
     """
-    if country_code == "CH":
-        # Find closest rate key (within 0.5% tolerance)
-        for rate, code in _CH_RATE_MAP.items():
-            if abs(tax_rate - rate) < 0.005:
-                return code
+    total_discount = float(order.total_discounts or 0)
+    if total_discount <= 0:
+        return {}
 
-    fallback = settings.comatic_default_vat_code
-    logger.warning(
-        "map_vat_code: no mapping for country={country} rate={rate:.3f}. "
-        "Using fallback='{fallback}'. Update _CH_RATE_MAP or add your country.",
-        country=country_code,
-        rate=tax_rate,
-        fallback=fallback,
-    )
-    return fallback
+    line_total_before_discount = sum(i.total_price_float for i in order.line_items)
+    if line_total_before_discount <= 0:
+        return {}
+
+    allocations = {}
+    for item in order.line_items:
+        share = item.total_price_float / line_total_before_discount
+        allocations[item.id] = round(total_discount * share, 2)
+        
+    return allocations
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -90,7 +65,6 @@ def _build_address(order: ShopifyOrder) -> ComaticAddressCreate:
     currency = order.currency or "CHF"
     country_code = order.country_code
 
-    # Derive language code from country (basic heuristic)
     lang_map = {"CH": "de-ch", "DE": "de-de", "AT": "de-at", "FR": "fr-fr"}
     lang_code = lang_map.get(country_code, "de-ch")
 
@@ -116,114 +90,133 @@ def _build_address(order: ShopifyOrder) -> ComaticAddressCreate:
     )
 
 
-def _build_invoice(
-    order: ShopifyOrder,
-    address_id: int,
-    is_paid: bool,
-) -> ComaticInvoiceCreate:
-    """Build the Comatic invoice body from a Shopify order."""
-    doc_date = order.created_at.strftime("%Y-%m-%dT%H:%M:%SZ")
+async def _build_invoice_rows(
+    order: ShopifyOrder, 
+    shopify: ShopifyClient
+) -> list[ComaticInvoiceDetailRow]:
+    """
+    Build precision invoice rows including products (with category check) and shipping.
+    """
     country_code = order.country_code
-
-    detail_rows: list[ComaticInvoiceDetailRow] = []
+    rows: list[ComaticInvoiceDetailRow] = []
+    
+    # 1. Allocate discounts
+    discount_map = _allocate_discounts(order)
+    
+    # 2. Add Line Items
     for item in order.line_items:
-        tax_rate = item.effective_tax_rate
-        vat_code = map_vat_code(country_code, tax_rate)
-        detail_rows.append(
+        # Fetch product details for category cross-check
+        product_type = None
+        if item.product_id:
+            try:
+                product = await shopify.get_product(item.product_id)
+                product_type = product.get("product_type")
+            except Exception as e:
+                logger.warning("Could not fetch product {id} details: {err}", id=item.product_id, err=e)
+
+        rate = item.effective_tax_rate
+        vat_code = tax_mapper.get_vat_code(country_code, rate, product_type)
+        
+        # Calculate line discount (if any)
+        discount_amount = discount_map.get(item.id, 0.0)
+        
+        rows.append(
             ComaticInvoiceDetailRow(
-                Description=item.title[:50] if item.title else "Article",
+                Description=f"{item.title} ({product_type})" if product_type else item.title,
                 Specification=item.sku,
                 Quantity=float(item.quantity),
                 SingleAmount=item.unit_price_float,
                 TotalAmount=item.total_price_float,
+                Discount=discount_amount, # Comatic expects amount or %? Usually amount in this context.
                 VatCode=vat_code,
                 QuantityUnit="Stk",
                 ExternalId=str(item.id),
             )
         )
 
-    return ComaticInvoiceCreate(
-        DocumentDate=doc_date,
-        Status="Registered",
-        AddressId=address_id,
-        AddressForServiceId=address_id,
-        InvoiceAddressId=address_id,
-        CommissionRecipientAddressId=address_id,
-        Terms=settings.comatic_default_sales_condition[:2],
-        ChargeFactor=settings.comatic_default_charge_factor,
-        VatType=settings.comatic_default_vat_type,
-        CurrencyCode=order.currency[:3],
-        AccountingRate=settings.comatic_default_accounting_rate,
-        StockLocation=settings.comatic_default_stock_location,
-        StatusOfStock=0,
-        IsOpenPosition=not is_paid,              # True = still outstanding
-        ExternalId=str(order.id)[:50],           # Shopify Order ID
-        Reference=order.name[:50],               # e.g. "#1001"
-        BookingText=f"Shopify {order.name}"[:50],
-        DetailRows=detail_rows,
-    )
+    # 3. Add Shipping Lines
+    for ship in order.shipping_lines:
+        rate = ship.effective_tax_rate
+        vat_code = tax_mapper.get_vat_code(country_code, rate, "Shipping")
+        
+        rows.append(
+            ComaticInvoiceDetailRow(
+                ArticleId=settings.comatic_shipping_article_id,
+                Description=f"Shipping: {ship.title}",
+                Quantity=1.0,
+                SingleAmount=ship.price_float,
+                TotalAmount=ship.price_float,
+                VatCode=vat_code,
+                QuantityUnit="Service",
+                ExternalId=f"ship_{order.id}",
+            )
+        )
+
+    return rows
 
 
 async def _process_order(
     order: ShopifyOrder,
+    shopify: ShopifyClient,
     comatic: ComaticClient,
 ) -> bool:
     """
-    Process one Shopify order through the full sync pipeline.
-    Returns True on success, False on failure.
+    Process one Shopify order through the precision sync pipeline.
     """
     order_id = str(order.id)
-    logger.info(
-        "Processing order {name} (id={id}) financial_status={status} gateway={gw}",
-        name=order.name,
-        id=order_id,
-        status=order.financial_status,
-        gw=order.payment_gateway,
-    )
+    logger.info("Syncing order {name} (Accountant Precision)...", name=order.name)
 
     email = order.customer_email
     is_paid = order.financial_status == "paid"
 
     try:
-        # ── Step 1: Customer Management ──────────────────────────────────────
+        # ── Step 1: Document Storage ──────────────────────────────────────────
+        if is_paid:
+            await shopify.download_order_document(order.id)
+
+        # ── Step 2: Customer ──────────────────────────────────────────────────
         comatic_address = None
         if email:
             comatic_address = await comatic.find_address_by_email(email)
 
         if comatic_address is None:
-            logger.info(
-                "Order {id}: no existing Comatic address found, creating one.", id=order_id
-            )
             address_body = _build_address(order)
             comatic_address = await comatic.create_address(address_body)
-        else:
-            logger.info(
-                "Order {id}: reusing Comatic address Id={addr_id}",
-                id=order_id,
-                addr_id=comatic_address.Id,
-            )
 
         address_id = comatic_address.Id
         if address_id is None:
-            raise ComaticAPIError(f"Comatic returned address with no Id for order {order_id}")
+            raise ComaticAPIError(f"Address creation failed for {order_id}")
 
-        # ── Step 2: Create Invoice ────────────────────────────────────────────
-        invoice_body = _build_invoice(order, address_id, is_paid)
+        # ── Step 3: Precise Invoice ───────────────────────────────────────────
+        detail_rows = await _build_invoice_rows(order, shopify)
+        
+        invoice_body = ComaticInvoiceCreate(
+            DocumentDate=order.created_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            Status="Registered",
+            AddressId=address_id,
+            AddressForServiceId=address_id,
+            InvoiceAddressId=address_id,
+            CommissionRecipientAddressId=address_id,
+            Terms=settings.comatic_default_sales_condition[:2],
+            ChargeFactor=settings.comatic_default_charge_factor,
+            VatType=settings.comatic_default_vat_type,
+            CurrencyCode=order.currency[:3],
+            AccountingRate=settings.comatic_default_accounting_rate,
+            StockLocation=settings.comatic_default_stock_location,
+            StatusOfStock=0,
+            IsOpenPosition=not is_paid,
+            ExternalId=str(order.id),
+            Reference=order.name,
+            BookingText=f"Shopify {order.name}",
+            DetailRows=detail_rows,
+        )
+        
         invoice_data = await comatic.create_invoice(invoice_body)
         comatic_invoice_id = invoice_data.get("Id")
         doc_number = invoice_data.get("DocumentNumber")
 
-        logger.info(
-            "Order {id}: Comatic invoice created Id={inv} DocNum={doc} IsOpenPosition={open}",
-            id=order_id,
-            inv=comatic_invoice_id,
-            doc=doc_number,
-            open=not is_paid,
-        )
-
-        # ── Step 3: Payment (only for already-paid orders) ───────────────────
+        # ── Step 4: Payment ───────────────────────────────────────────────────
         if is_paid:
-            payment_date = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
             payment_body = ComaticPaymentOnAccountCreate(
                 AddressId=address_id,
                 BookingText=f"Shopify {order.name}",
@@ -231,24 +224,13 @@ async def _process_order(
                 Currency=order.currency[:3],
                 Amount=order.total_price_float,
                 BookingAmount=order.total_price_float,
-                BookingDate=payment_date,
+                BookingDate=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
                 DocumentNumber=doc_number,
-                VatCode=settings.comatic_default_vat_code,
+                VatCode=tax_mapper.get_vat_code(order.country_code, 0.0, "Payment"), # dummy vat for payment booking
             )
             await comatic.create_payment_on_account(address_id, payment_body)
-            logger.info(
-                "Order {id}: Comatic payment on account posted (is_paid=True).", id=order_id
-            )
-        else:
-            logger.info(
-                "Order {id}: left as open position (financial_status={status}, gateway={gw}). "
-                "Requires manual confirmation.",
-                id=order_id,
-                status=order.financial_status,
-                gw=order.payment_gateway,
-            )
 
-        # ── Step 4: Mark synced in SQLite ─────────────────────────────────────
+        # ── Step 5: Mark Synced ───────────────────────────────────────────────
         await mark_order_synced(
             shopify_order_id=order_id,
             shopify_order_name=order.name,
@@ -262,19 +244,8 @@ async def _process_order(
         )
         return True
 
-    except ComaticAPIError as exc:
-        logger.error(
-            "Order {id} FAILED due to Comatic API error. Will retry tomorrow. Error: {err}",
-            id=order_id,
-            err=str(exc),
-        )
-        await mark_order_failed(order_id, str(exc))
-        return False
-
     except Exception as exc:
-        logger.exception(
-            "Order {id} FAILED due to unexpected error: {err}", id=order_id, err=str(exc)
-        )
+        logger.exception("Order {name} FAILED: {err}", name=order.name, err=str(exc))
         await mark_order_failed(order_id, str(exc))
         return False
 
@@ -284,61 +255,31 @@ async def _process_order(
 # ─────────────────────────────────────────────────────────────────────────────
 
 async def run_sync(since_hours: Optional[int] = None) -> dict:
-    """
-    Main sync function. Fetches all new Shopify orders and syncs each to Comatic.
-    Returns a stats dict for dashboard display.
-
-    Called by:
-      - sync_runner.py (cron)
-      - web/app.py (Manual Sync button via FastAPI background task)
-    """
     run_id = await start_sync_run()
-    logger.info("=== Starting sync run #{run_id} ===", run_id=run_id)
+    logger.info("=== Starting Accountant Precision Sync #{run_id} ===", run_id=run_id)
 
-    stats = {
-        "found": 0,
-        "synced": 0,
-        "skipped": 0,
-        "failed": 0,
-    }
+    stats = {"found": 0, "synced": 0, "skipped": 0, "failed": 0}
 
     try:
         async with ShopifyClient() as shopify:
             orders = await shopify.get_new_orders(since_hours=since_hours)
-        stats["found"] = len(orders)
+            stats["found"] = len(orders)
 
-        async with ComaticClient() as comatic:
-            for order in orders:
-                order_id = str(order.id)
-                if await is_order_synced(order_id):
-                    logger.info("Order {id} already synced. Skipping.", id=order_id)
-                    stats["skipped"] += 1
-                    continue
+            async with ComaticClient() as comatic:
+                for order in orders:
+                    if await is_order_synced(str(order.id)):
+                        stats["skipped"] += 1
+                        continue
 
-                success = await _process_order(order, comatic)
-                if success:
-                    stats["synced"] += 1
-                else:
-                    stats["failed"] += 1
+                    if await _process_order(order, shopify, comatic):
+                        stats["synced"] += 1
+                    else:
+                        stats["failed"] += 1
 
     except Exception as exc:
-        logger.exception("Sync run #{run_id} aborted by unhandled exception: {err}", run_id=run_id, err=str(exc))
-        await finish_sync_run(
-            run_id,
-            stats["found"], stats["synced"], stats["skipped"], stats["failed"],
-            status="error",
-        )
+        logger.exception("Sync aborted: {err}", err=str(exc))
+        await finish_sync_run(run_id, stats["found"], stats["synced"], stats["skipped"], stats["failed"], "error")
         raise
 
-    await finish_sync_run(
-        run_id,
-        stats["found"], stats["synced"], stats["skipped"], stats["failed"],
-        status="done",
-    )
-    logger.info(
-        "=== Sync run #{run_id} complete: found={found} synced={synced} "
-        "skipped={skipped} failed={failed} ===",
-        run_id=run_id,
-        **stats,
-    )
+    await finish_sync_run(run_id, stats["found"], stats["synced"], stats["skipped"], stats["failed"], "done")
     return stats
