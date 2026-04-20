@@ -1,0 +1,37 @@
+"""
+config.py — Reads all settings from the .env file via pydantic-settings.
+"""
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+
+    # ── Shopify ─────────────────────────────────────────────────────────────────
+    shopify_store: str          # e.g. "your-store.myshopify.com"
+    shopify_token: str          # shpat_…
+
+    # ── Comatic ─────────────────────────────────────────────────────────────────
+    comatic_base_url: str       # e.g. "https://comatic.example.com"
+    comatic_api_version: str = "v3"
+    comatic_username: str
+    comatic_password: str
+    comatic_default_vat_code: str = "NN"          # fallback; override once confirmed
+    comatic_default_sales_condition: str = "30"   # 2-char terms code
+    comatic_default_purchase_condition: str = "30"
+    comatic_default_stock_location: int = 1
+    comatic_default_vat_type: int = 1
+    comatic_default_charge_factor: float = 1.0
+    comatic_default_accounting_rate: float = 1.0
+
+    # ── SQLite ───────────────────────────────────────────────────────────────────
+    sqlite_db_path: str = "sync.db"
+
+    # ── Logging ──────────────────────────────────────────────────────────────────
+    log_file: str = "shopify_comatic.log"
+
+    # ── Sync ─────────────────────────────────────────────────────────────────────
+    sync_lookback_hours: int = 24
+
+
+settings = Settings()

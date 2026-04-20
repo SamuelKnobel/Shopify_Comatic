@@ -1,0 +1,31 @@
+# ── Python ──────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+bin/
+lib/
+include/
+share/
+*.bak
+
+# ── Project Specific ────────────────────────────────────────────────────────
+.env
+*.db
+*.log
+documents/
+!documents/.gitkeep
+
+# ── Testing ─────────────────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ── IDE & OS ────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini

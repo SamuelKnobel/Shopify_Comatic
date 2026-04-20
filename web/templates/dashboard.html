@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% set active = "dashboard" %}
+
+{% block title %}Dashboard — Comatic Bridge{% endblock %}
+
+{% block content %}
+<div class="topbar">
+  <div class="topbar-title">
+    <h1>Sync Dashboard</h1>
+    <div class="subtitle">Orders synced in the last 7 days &nbsp;·&nbsp; {{ now }}</div>
+  </div>
+
+  <!-- Manual Sync Button -->
+  <form method="POST" action="/sync" id="sync-form">
+    <button type="submit" class="btn btn-primary {% if sync_running %}loading{% endif %}" id="sync-btn"
+            {% if sync_running %}disabled{% endif %}>
+      {% if sync_running %}
+        <span class="spinner"></span> Syncing…
+      {% else %}
+        ⚡ Manual Sync
+      {% endif %}
+    </button>
+  </form>
+</div>
+
+<div class="content">
+
+  {% if sync_running %}
+  <div class="alert alert-info">
+    <span>🔄</span>
+    <span>Sync is running in the background. Refresh in a moment to see updated results.</span>
+  </div>
+  {% endif %}
+
+  {% if last_sync_stats %}
+  <div class="alert alert-success">
+    <span>✓</span>
+    <span>
+      Last sync: <strong>{{ last_sync_stats.found }}</strong> found,
+      <strong>{{ last_sync_stats.synced }}</strong> synced,
+      <strong>{{ last_sync_stats.skipped }}</strong> skipped,
+      <strong>{{ last_sync_stats.failed }}</strong> failed.
+    </span>
+  </div>
+  {% endif %}
+
+  <!-- ── Stat cards ──────────────────────────────────────────────────── -->
+  <div class="stat-grid">
+    <div class="stat-card">
+      <div class="stat-label">Total (7 days)</div>
+      <div class="stat-value blue">{{ total_count }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Paid</div>
+      <div class="stat-value green">{{ paid_count }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Pending</div>
+      <div class="stat-value amber">{{ pending_count }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Failed</div>
+      <div class="stat-value red">{{ failed_count }}</div>
+    </div>
+  </div>
+
+  <!-- ── Orders table ────────────────────────────────────────────────── -->
+  <div class="section-header">
+    <div class="section-title">Recent Orders</div>
+  </div>
+
+  <div class="table-wrap">
+    {% if orders %}
+    <table>
+      <thead>
+        <tr>
+          <th>Order</th>
+          <th>Customer</th>
+          <th>Amount</th>
+          <th>Gateway</th>
+          <th>Comatic Invoice</th>
+          <th>Status</th>
+          <th>Synced At</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for o in orders %}
+        <tr>
+          <td><span class="order-name">{{ o.shopify_order_name or o.shopify_order_id }}</span></td>
+          <td>
+            <div>{{ o.customer_email or '—' }}</div>
+          </td>
+          <td class="amount">
+            {{ "%.2f"|format(o.total_price or 0) }}
+            <span style="color:var(--text-muted); font-size:11px; font-weight:400;">{{ o.currency or '' }}</span>
+          </td>
+          <td>
+            <span class="gateway">{{ o.payment_gateway or '—' }}</span>
+          </td>
+          <td>
+            {% if o.comatic_invoice_id %}
+              <span style="font-family:monospace; font-size:12px; color:var(--text-secondary)">#{{ o.comatic_invoice_id }}</span>
+            {% else %}
+              <span style="color:var(--text-muted)">—</span>
+            {% endif %}
+          </td>
+          <td>
+            {% set badge_class, badge_label = o.status_badge %}
+            {% if o.sync_status == 'synced' and not o.is_paid %}
+              <span class="badge badge-amber">⏳ Pending</span>
+            {% elif o.sync_status == 'synced' and o.is_paid %}
+              <span class="badge badge-green">✓ Paid</span>
+            {% elif o.sync_status == 'failed' %}
+              <span class="badge badge-red" title="{{ o.error_message or '' }}">✗ Failed</span>
+            {% else %}
+              <span class="badge badge-gray">{{ o.sync_status }}</span>
+            {% endif %}
+          </td>
+          <td style="color:var(--text-secondary); font-size:12px;">
+            {{ (o.synced_at or o.created_at or '')[:19].replace('T',' ') }}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty">
+      <div class="empty-icon">📭</div>
+      <div class="empty-text">No orders synced in the last 7 days</div>
+      <div class="empty-sub">Run a manual sync or wait for the next scheduled run.</div>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Auto-refresh every 8 seconds while sync is running
+{% if sync_running %}
+setTimeout(() => location.reload(), 8000);
+{% endif %}
+
+// Confirm before manual sync
+document.getElementById('sync-form').addEventListener('submit', function(e) {
+  if (!confirm('Start a manual sync now?\nThis will fetch all Shopify orders from the last {{ "SYNC_LOOKBACK_HOURS" | default("24") }} hours.')) {
+    e.preventDefault();
+  }
+});
+</script>
+{% endblock %}

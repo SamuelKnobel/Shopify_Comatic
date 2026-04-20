@@ -1,0 +1,446 @@
+/* ─── Shopify-Comatic Bridge Dashboard ──────────────────────────────────────
+   Dark glassmorphism theme with Shopify green accent.
+   Font: Inter (Google Fonts)
+─────────────────────────────────────────────────────────────────────────── */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg-base:       #0d1117;
+  --bg-surface:    #161b22;
+  --bg-card:       #1c2128;
+  --bg-card-hover: #222831;
+  --border:        rgba(255,255,255,0.08);
+
+  --green:         #3fb950;
+  --green-dim:     #239636;
+  --amber:         #e3b341;
+  --red:           #f85149;
+  --blue:          #58a6ff;
+  --purple:        #bc8cff;
+  --gray:          #8b949e;
+
+  --text-primary:  #e6edf3;
+  --text-secondary:#8b949e;
+  --text-muted:    #484f58;
+
+  --sidebar-w:     220px;
+  --radius:        10px;
+  --radius-sm:     6px;
+  --shadow:        0 4px 24px rgba(0,0,0,0.4);
+  --glow-green:    0 0 20px rgba(63,185,80,0.15);
+}
+
+html, body {
+  height: 100%;
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* ─── Layout ─────────────────────────────────────────────────────────────── */
+
+.layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* ─── Sidebar ────────────────────────────────────────────────────────────── */
+
+.sidebar {
+  width: var(--sidebar-w);
+  flex-shrink: 0;
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem 0;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+  text-decoration: none;
+}
+
+.sidebar-brand .logo {
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, #3fb950, #1a7f37);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  box-shadow: var(--glow-green);
+}
+
+.sidebar-brand span {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 1rem 0.75rem;
+  flex: 1;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 13px;
+  transition: all 0.15s ease;
+}
+
+.nav-item:hover {
+  background: rgba(255,255,255,0.05);
+  color: var(--text-primary);
+}
+
+.nav-item.active {
+  background: rgba(63,185,80,0.12);
+  color: var(--green);
+}
+
+.nav-item .icon { width: 16px; text-align: center; flex-shrink: 0; }
+
+.nav-badge {
+  margin-left: auto;
+  background: var(--red);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 999px;
+  min-width: 18px;
+  text-align: center;
+}
+
+.nav-badge.amber { background: var(--amber); color: #000; }
+
+/* ─── Main content ───────────────────────────────────────────────────────── */
+
+.main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.75rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-surface);
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.topbar-title h1 {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+.topbar-title .subtitle {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.content {
+  padding: 1.75rem;
+  flex: 1;
+}
+
+/* ─── Stat cards ─────────────────────────────────────────────────────────── */
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.75rem;
+}
+
+.stat-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+}
+
+.stat-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-secondary);
+  margin-bottom: 0.35rem;
+}
+
+.stat-value {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.stat-value.green  { color: var(--green); }
+.stat-value.amber  { color: var(--amber); }
+.stat-value.red    { color: var(--red); }
+.stat-value.blue   { color: var(--blue); }
+
+/* ─── Section header ─────────────────────────────────────────────────────── */
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.875rem;
+}
+
+.section-title {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* ─── Table ──────────────────────────────────────────────────────────────── */
+
+.table-wrap {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+thead th {
+  padding: 0.75rem 1rem;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  background: var(--bg-surface);
+}
+
+tbody tr {
+  border-bottom: 1px solid var(--border);
+  transition: background 0.1s;
+}
+
+tbody tr:last-child { border-bottom: none; }
+
+tbody tr:hover { background: var(--bg-card-hover); }
+
+tbody td {
+  padding: 0.75rem 1rem;
+  font-size: 13px;
+}
+
+.order-name {
+  font-weight: 600;
+  color: var(--blue);
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 12px;
+}
+
+.email { color: var(--text-secondary); font-size: 12px; }
+
+.amount {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ─── Badges ─────────────────────────────────────────────────────────────── */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.badge-green  { background: rgba(63,185,80,0.15);  color: var(--green); }
+.badge-red    { background: rgba(248,81,73,0.15);   color: var(--red); }
+.badge-amber  { background: rgba(227,179,65,0.15);  color: var(--amber); }
+.badge-gray   { background: rgba(139,148,158,0.15); color: var(--gray); }
+.badge-blue   { background: rgba(88,166,255,0.15);  color: var(--blue); }
+
+/* ─── Buttons ────────────────────────────────────────────────────────────── */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  outline: none;
+  transition: all 0.15s;
+  text-decoration: none;
+  font-family: inherit;
+}
+
+.btn-primary {
+  background: var(--green);
+  color: #000;
+}
+
+.btn-primary:hover {
+  background: var(--green-dim);
+  box-shadow: var(--glow-green);
+}
+
+.btn-primary:disabled, .btn-primary.loading {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-danger {
+  background: rgba(248,81,73,0.15);
+  color: var(--red);
+  border: 1px solid rgba(248,81,73,0.3);
+}
+
+.btn-danger:hover { background: rgba(248,81,73,0.25); }
+
+.btn-ghost {
+  background: rgba(255,255,255,0.05);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+
+.btn-ghost:hover { background: rgba(255,255,255,0.1); color: var(--text-primary); }
+
+.btn-sm { padding: 0.3rem 0.65rem; font-size: 12px; }
+
+/* ─── Sync spinner ───────────────────────────────────────────────────────── */
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(0,0,0,0.3);
+  border-top-color: #000;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+/* ─── Alert banner ───────────────────────────────────────────────────────── */
+
+.alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+  border-radius: var(--radius-sm);
+  margin-bottom: 1.25rem;
+  font-size: 13px;
+  border: 1px solid;
+}
+
+.alert-info   { background: rgba(88,166,255,0.08);  border-color: rgba(88,166,255,0.25);  color: var(--blue); }
+.alert-warn   { background: rgba(227,179,65,0.08);  border-color: rgba(227,179,65,0.25);  color: var(--amber); }
+.alert-success{ background: rgba(63,185,80,0.08);   border-color: rgba(63,185,80,0.25);   color: var(--green); }
+.alert-error  { background: rgba(248,81,73,0.08);   border-color: rgba(248,81,73,0.25);   color: var(--red); }
+
+/* ─── Empty state ────────────────────────────────────────────────────────── */
+
+.empty {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--text-secondary);
+}
+
+.empty-icon { font-size: 32px; margin-bottom: 0.75rem; }
+.empty-text { font-size: 14px; font-weight: 500; }
+.empty-sub  { font-size: 12px; color: var(--text-muted); margin-top: 0.25rem; }
+
+/* ─── Gateway pill ───────────────────────────────────────────────────────── */
+
+.gateway {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* ─── Toast notification ─────────────────────────────────────────────────── */
+
+#toast {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.875rem 1.25rem;
+  font-size: 13px;
+  box-shadow: var(--shadow);
+  z-index: 9999;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.2s, transform 0.2s;
+  max-width: 340px;
+  pointer-events: none;
+}
+
+#toast.show {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+#toast.success { border-left: 3px solid var(--green); }
+#toast.error   { border-left: 3px solid var(--red); }
+
+/* ─── Scrollbar ──────────────────────────────────────────────────────────── */
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }

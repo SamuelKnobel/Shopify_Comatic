@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <title>{% block title %}Comatic Bridge{% endblock %}</title>
+  <meta name="description" content="Shopify to Comatic ERP synchronisation dashboard">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="layout">
+
+  <!-- ── Sidebar ──────────────────────────────────────────────────────── -->
+  <aside class="sidebar">
+    <a href="/" class="sidebar-brand">
+      <div class="logo">🔗</div>
+      <span>Comatic Bridge</span>
+    </a>
+
+    <nav class="nav">
+      <a href="/" class="nav-item {% if active == 'dashboard' %}active{% endif %}" id="nav-dashboard">
+        <span class="icon">📊</span> Dashboard
+      </a>
+      <a href="/pending" class="nav-item {% if active == 'pending' %}active{% endif %}" id="nav-pending">
+        <span class="icon">⏳</span> Pending
+        {% if pending_badge_count and pending_badge_count > 0 %}
+          <span class="nav-badge amber">{{ pending_badge_count }}</span>
+        {% endif %}
+      </a>
+    </nav>
+
+    <div style="padding: 1rem; border-top: 1px solid var(--border); font-size: 11px; color: var(--text-muted);">
+      Shopify ↔ Comatic v1.0
+    </div>
+  </aside>
+
+  <!-- ── Content ──────────────────────────────────────────────────────── -->
+  <div class="main">
+    {% block content %}{% endblock %}
+  </div>
+</div>
+
+<!-- Toast notification -->
+<div id="toast"></div>
+
+<script>
+function showToast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show ' + type;
+  setTimeout(() => { t.className = ''; }, 4000);
+}
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>
