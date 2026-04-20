@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     # ── Accountant Settings ─────────────────────────────────────────────────────
     comatic_shipping_article_id: int = 9000
     comatic_vat_mapping: str = "{}"  # Parsed as json
+    comatic_payment_accounts: str = "{}" # JSON Mapping: "Name": "AccountCode"
     order_docs_dir: str = "documents"
 
     # ── SQLite ───────────────────────────────────────────────────────────────────
