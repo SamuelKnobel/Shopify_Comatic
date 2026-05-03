@@ -9,6 +9,8 @@ services:
       mountPath: /data
       sizeGB: 1
     envVars:
+      - key: PYTHON_VERSION
+        value: "3.12"
       - key: SQLITE_DB_PATH
         value: /data/sync.db
       - key: SHOPIFY_SHOP
