@@ -31,25 +31,58 @@ class ShopifyClient:
             orders = await client.get_new_orders()
     """
 
-    BASE_URL = "https://{store}/admin/api/2024-01"
+    BASE_URL = "https://{store}/admin/api/2026-04"
     PAGE_LIMIT = 250  # Shopify max per page
 
     def __init__(self) -> None:
-        self._base = self.BASE_URL.format(store=settings.shopify_store)
+        self._base = self.BASE_URL.format(store=settings.shopify_shop)
         self._headers = {
-            "X-Shopify-Access-Token": settings.shopify_token,
             "Content-Type": "application/json",
         }
+        # If a token is already provided in .env, use it
+        if settings.shopify_token:
+            self._headers["X-Shopify-Access-Token"] = settings.shopify_token
+
         self._client: Optional[httpx.AsyncClient] = None
         self._product_cache: dict[int, dict] = {}
 
     async def __aenter__(self) -> "ShopifyClient":
+        await self._ensure_token()
         self._client = httpx.AsyncClient(headers=self._headers, timeout=30)
         return self
 
     async def __aexit__(self, *_) -> None:
         if self._client:
             await self._client.aclose()
+
+    async def _ensure_token(self) -> None:
+        """
+        Ensures we have a valid X-Shopify-Access-Token.
+        If missing, fetches one using Client ID and Secret.
+        """
+        if "X-Shopify-Access-Token" in self._headers:
+            return
+
+        logger.info("Shopify: Fetching fresh access token using client credentials...")
+        token_url = f"https://{settings.shopify_shop}/admin/oauth/access_token"
+        payload = {
+            "grant_type": "client_credentials",
+            "client_id": settings.shopify_client_id,
+            "client_secret": settings.shopify_client_secret,
+        }
+
+        async with httpx.AsyncClient() as temp_client:
+            response = await temp_client.post(token_url, data=payload)
+            if not response.is_success:
+                logger.error("Failed to fetch Shopify token: {body}", body=response.text)
+                raise ShopifyAPIError(f"Token retrieval failed: {response.status_code}")
+            
+            token = response.json().get("access_token")
+            if not token:
+                raise ShopifyAPIError("Shopify response did not contain access_token")
+            
+            self._headers["X-Shopify-Access-Token"] = token
+            logger.info("Shopify: Access token retrieved successfully.")
 
     # ─── Internal helpers ────────────────────────────────────────────────────
 
@@ -86,6 +119,30 @@ class ShopifyClient:
                 f"Shopify returned {response.status_code} for POST {url}: {response.text[:200]}"
             )
         return response.json()
+
+    async def graphql(self, query: str, variables: dict | None = None) -> dict:
+        """
+        Execute a GraphQL query against the Shopify Admin API.
+        """
+        url = f"{self._base}/graphql.json"
+        payload = {"query": query}
+        if variables:
+            payload["variables"] = variables
+
+        logger.debug("Shopify GraphQL POST to {url}", url=url)
+        response = await self._client.post(url, json=payload)
+        self._handle_rate_limit(response)
+
+        if not response.is_success:
+            logger.error("Shopify GraphQL error {status}: {body}", status=response.status_code, body=response.text)
+            raise ShopifyAPIError(f"GraphQL HTTP Error: {response.status_code}")
+
+        data = response.json()
+        if "errors" in data:
+            logger.error("Shopify GraphQL Errors: {errors}", errors=data["errors"])
+            raise ShopifyAPIError(f"GraphQL Data Error: {data['errors']}")
+
+        return data.get("data", {})
 
     @staticmethod
     def _handle_rate_limit(response: httpx.Response) -> None:
@@ -157,6 +214,12 @@ class ShopifyClient:
         )
         return all_orders
 
+    async def get_shop_info(self) -> dict:
+        """Fetch general store settings to verify connection and permissions."""
+        logger.info("Shopify: Verifying connection by fetching shop info...")
+        data = await self._get("/shop.json")
+        return data.get("shop", {})
+
     async def mark_order_paid(self, shopify_order_id: int, amount: float, currency: str) -> dict:
         """
         Post a payment transaction to Shopify to mark the order as paid.
@@ -196,6 +259,15 @@ class ShopifyClient:
         product = data.get("product", {})
         self._product_cache[product_id] = product
         return product
+
+    async def get_products(self, limit: int = 5) -> list[dict]:
+        """
+        Fetch a list of products from Shopify.
+        Useful for testing product API permissions.
+        """
+        logger.info("Shopify: Fetching {limit} products...", limit=limit)
+        data = await self._get("/products.json", params={"limit": limit})
+        return data.get("products", [])
 
     async def download_order_document(self, shopify_order_id: int) -> str:
         """

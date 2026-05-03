@@ -1,634 +1,107 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Comatic | Accountant Bridge Pro</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <style>
-    html {
-      scroll-behavior: smooth;
-    }
-
-    /* ─── Bulletproof Premium CSS ─── */
-    :root {
-      --bg-dark: #080a0c;
-      --bg-sidebar: #111418;
-      --bg-card: #181c23;
-      --bg-card-hover: #1e242d;
-      --shopify-green: #3fb950;
-      --shopify-green-glow: rgba(63, 185, 80, 0.2);
-      --electric-blue: #58a6ff;
-      --danger-red: #f85149;
-      --warning-amber: #f59e0b;
-      --text-primary: #e6edf3;
-      --text-secondary: #8b949e;
-      --border: rgba(255, 255, 255, 0.1);
-      --sidebar-width: 280px;
-    }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
-    body {
-      background-color: var(--bg-dark);
-      color: var(--text-primary);
-      font-family: 'Inter', -apple-system, system-ui, sans-serif;
-      height: 100vh;
-      display: flex;
-      overflow: hidden;
-    }
-
-    /* ─── Sidebar ─── */
-    aside.sidebar {
-      width: var(--sidebar-width);
-      background-color: var(--bg-sidebar);
-      border-right: 1px solid var(--border);
-      display: flex;
-      flex-direction: column;
-      padding: 2rem 1.5rem;
-      flex-shrink: 0;
-    }
-
-    .brand {
-      margin-bottom: 3rem;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .logo-box {
-      width: 40px;
-      height: 40px;
-      background: var(--shopify-green);
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 20px;
-      box-shadow: 0 0 20px var(--shopify-green-glow);
-    }
-
-    .brand-text {
-      font-size: 18px;
-      font-weight: 700;
-      letter-spacing: -0.5px;
-    }
-
-    .nav-list {
-      list-style: none;
-      flex-grow: 1;
-    }
-
-    .nav-item {
-      margin-bottom: 8px;
-    }
-
-    .nav-link {
-      text-decoration: none;
-      color: var(--text-secondary);
-      padding: 12px 16px;
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      font-weight: 500;
-      transition: all 0.2s;
-    }
-
-    .nav-link:hover {
-      background: rgba(255, 255, 255, 0.05);
-      color: var(--text-primary);
-    }
-
-    .nav-link.active {
-      background: var(--shopify-green-glow);
-      color: var(--shopify-green);
-      border: 1px solid rgba(63, 185, 80, 0.3);
-    }
-
-    /* ─── Main Content ─── */
-    main.content {
-      flex-grow: 1;
-      padding: 2.5rem 3rem;
-      overflow-y: auto;
-      position: relative;
-    }
-
-    .header-bar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 2.5rem;
-    }
-
-    .welcome-msg h1 {
-      font-size: 28px;
-      font-weight: 700;
-      letter-spacing: -1px;
-      margin-bottom: 4px;
-    }
-
-    .welcome-msg p {
-      color: var(--text-secondary);
-      font-size: 14px;
-    }
-
-    /* ─── Billboard ─── */
-    .billboard {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 1.5rem;
-      margin-bottom: 3rem;
-    }
-
-    .stat-box {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      padding: 1.5rem;
-      border-radius: 16px;
-      transition: transform 0.2s;
-    }
-
-    .stat-box:hover {
-      transform: translateY(-4px);
-      border-color: rgba(255, 255, 255, 0.2);
-    }
-
-    .stat-label {
-      font-size: 12px;
-      font-weight: 600;
-      text-transform: uppercase;
-      color: var(--text-secondary);
-      margin-bottom: 8px;
-      letter-spacing: 1px;
-    }
-
-    .stat-value {
-      font-size: 32px;
-      font-weight: 700;
-      letter-spacing: -1px;
-    }
-
-    /* ─── Grid Areas ─── */
-    .section-grid {
-      display: grid;
-      grid-template-columns: 3fr 2fr;
-      gap: 2rem;
-      margin-bottom: 3rem;
-    }
-
-    @media (max-width: 1200px) {
-      .section-grid {
-        grid-template-columns: 1fr;
-      }
-    }
-
-    .card {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 18px;
-      padding: 2rem;
-    }
-
-    .card-title {
-      font-size: 18px;
-      font-weight: 600;
-      margin-bottom: 1.5rem;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    /* ─── Reconciliation List ─── */
-    .pending-list {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      max-height: 400px;
-      overflow-y: auto;
-      padding-right: 8px;
-    }
-
-    .pending-item {
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid var(--border);
-      padding: 1.25rem;
-      border-radius: 12px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-left: 4px solid var(--warning-amber);
-    }
-
-    .order-id {
-      font-family: monospace;
-      font-size: 16px;
-      color: var(--electric-blue);
-      font-weight: 600;
-    }
-
-    .order-meta {
-      font-size: 12px;
-      color: var(--text-secondary);
-      margin-top: 4px;
-    }
-
-    .item-actions {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    select.account-dropdown {
-      background: #0d1117;
-      color: white;
-      border: 1px solid var(--border);
-      padding: 8px 12px;
-      border-radius: 8px;
-      font-size: 13px;
-      outline: none;
-    }
-
-    .btn {
-      padding: 9px 18px;
-      border-radius: 8px;
-      font-weight: 600;
-      cursor: pointer;
-      border: none;
-      font-family: inherit;
-      transition: all 0.2s;
-      text-decoration: none;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 13px;
-    }
-
-    .btn-green {
-      background: var(--shopify-green);
-      color: #000;
-    }
-
-    .btn-green:hover {
-      background: #47cf5a;
-      box-shadow: 0 0 20px var(--shopify-green-glow);
-    }
-
-    .btn-sync {
-      background: var(--bg-card);
-      color: white;
-      border: 1px solid var(--border);
-    }
-
-    .btn-sync:hover {
-      background: var(--bg-card-hover);
-    }
-
-    /* ─── Charts ─── */
-    .chart-wrap {
-      height: 280px;
-      position: relative;
-    }
-
-    /* ─── History Table ─── */
-    .history-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 10px;
-    }
-
-    .history-table th {
-      text-align: left;
-      padding: 12px;
-      border-bottom: 1px solid var(--border);
-      color: var(--text-secondary);
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-    }
-
-    .history-table td {
-      padding: 16px 12px;
-      border-bottom: 1px solid var(--border);
-      font-size: 13px;
-    }
-
-    .history-table tr:hover {
-      background: rgba(255, 255, 255, 0.02);
-    }
-
-    .badge {
-      padding: 4px 10px;
-      border-radius: 6px;
-      font-size: 10px;
-      font-weight: 700;
-      text-transform: uppercase;
-    }
-
-    .badge-green {
-      background: rgba(63, 185, 80, 0.15);
-      color: var(--shopify-green);
-    }
-
-    .badge-red {
-      background: rgba(248, 81, 73, 0.15);
-      color: var(--danger-red);
-    }
-
-    .badge-amber {
-      background: rgba(245, 158, 11, 0.15);
-      color: var(--warning-amber);
-    }
-
-    .row-alert {
-      border-left: 4px solid var(--warning-amber);
-      background: rgba(245, 158, 11, 0.05);
-    }
-
-    /* ─── Modal ─── */
-    .modal-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.8);
-      backdrop-filter: blur(4px);
-      display: none;
-      justify-content: center;
-      align-items: center;
-      z-index: 1000;
-    }
-
-    .modal {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      width: 80%;
-      max-width: 800px;
-      max-height: 80%;
-      border-radius: 20px;
-      padding: 2rem;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .modal-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 1.5rem;
-    }
-
-    .log-content {
-      background: #0d1117;
-      color: #abb2bf;
-      padding: 1.5rem;
-      border-radius: 12px;
-      font-family: monospace;
-      font-size: 11px;
-      overflow-y: auto;
-      flex-grow: 1;
-    }
-  </style>
+  <title>Comatic Bridge | Orders</title>
+  <link rel="stylesheet" href="/static/dashboard.css">
 </head>
-
 <body>
-  <aside class="sidebar">
-    <div class="brand">
-      <div class="logo-box">S</div>
-      <div class="brand-text">Comatic Bridge</div>
-    </div>
-    <nav class="nav-list">
-      <li class="nav-item"><a href="#" class="nav-link active">🏠 Dashboard</a></li>
-      <li class="nav-item"><a href="#reconciliation" class="nav-link">🏦 Reconciliation</a></li>
-      <li class="nav-item"><a href="#analytics" class="nav-link">📊 VAT Reporting</a></li>
-      <li class="nav-item"><a href="/settings" class="nav-link">⚙️ Settings</a></li>
-    </nav>
+
+<aside>
+  <div class="brand">
+    <div class="brand-logo">S</div>
+    <div class="brand-name">Comatic Bridge</div>
+  </div>
+  <nav>
+    <a href="/">📦 Orders</a>
+  </nav>
+  <div class="sidebar-footer">
     <form action="/sync" method="post">
-      <button type="submit" class="btn btn-green" style="width:100%; justify-content:center;">Run Daily Sync</button>
+      <button type="submit" class="btn-sync">↻ Quick Sync</button>
     </form>
-  </aside>
+    <form action="/sync/full" method="post"
+          onsubmit="return confirm('Full sync fetches all orders from the last 365 days. Continue?')">
+      <button type="submit" class="btn-full-sync">⟳ Full Sync (365 days)</button>
+    </form>
+  </div>
+</aside>
 
-  <main class="content">
-    <header class="header-bar">
-      <div class="welcome-msg">
-        <h1>Overview</h1>
-        <p>Accounting Summary & Multi-Channel VAT Insights</p>
-      </div>
-      <div style="display:flex; gap:10px;">
-        {% if request.query_params.get('msg') %}
-        <span class="badge badge-green" style="font-size:12px; padding:10px 20px;">✓ {{ request.query_params.get('msg')
-          }}</span>
-        {% endif %}
-      </div>
-    </header>
+<main>
+  <h1>Orders</h1>
+  <p class="subtitle">Shopify orders synced to your local database</p>
 
-    <section class="billboard">
-      <div class="stat-box">
-        <div class="stat-label">Total Revenue (24h)</div>
-        <div class="stat-value" style="color:var(--text-primary);">
-          <small style="font-size:14px; color:var(--text-secondary);">EUR</small> {{ summary.rev_eur }}<br>
-          <small style="font-size:14px; color:var(--shopify-green);">CHF</small> {{ summary.rev_chf }}
-        </div>
-      </div>
-      <div class="stat-box">
-        <div class="stat-label">VAT Alerts</div>
-        <div class="stat-value" style="color:var(--warning-amber);">{{ summary.vat_alerts }}</div>
-        <p style="font-size:10px; color:var(--text-secondary);">Manual check recommended</p>
-      </div>
-      <div class="stat-box">
-        <div class="stat-label">Pending Payments</div>
-        <div class="stat-value" style="color:var(--electric-blue);">{{ summary.pending_chf }}</div>
-        <small style="font-size:10px; color:var(--text-secondary);">CHF Exposure</small>
-      </div>
-      <div class="stat-box">
-        <div class="stat-label">Sync Health</div>
-        <div class="stat-value" style="color:var(--shopify-green);">{{ summary.success_rate }}%</div>
-        <small style="font-size:10px; color:var(--text-secondary);">Successful pushes</small>
-      </div>
-    </section>
+  {% if msg   %}<div class="alert alert-ok" >✓ {{ msg }}</div>{% endif %}
+  {% if error %}<div class="alert alert-err">✗ {{ error }}</div>{% endif %}
 
-    <div class="section-grid">
-      <section class="card" id="reconciliation">
-        <div class="card-title">
-          <span>Manual Reconciliation</span>
-          <span class="badge badge-amber">{{ pending|length }} Required</span>
-        </div>
-        <div class="pending-list">
-          {% if not pending %}
-          <div style="padding:40px; text-align:center; color:var(--text-secondary);">No orders requiring manual
-            reconciliation.</div>
-          {% endif %}
-          {% for o in pending %}
-          <div class="pending-item">
-            <div class="item-info">
-              <div class="order-id">{{ o.shopify_order_name }}</div>
-              <div class="order-meta">{{ o.customer_email }} • {{ o.country_code }}</div>
-            </div>
-            <div class="item-actions">
-              <span style="font-weight:700; margin-right:15px;">{{ "%.2f"|format(o.total_price) }} {{ o.currency
-                }}</span>
-              <form action="/mark-as-paid/{{ o.shopify_order_id }}" method="post" style="display:flex; gap:10px;">
-                <select name="bank_account" class="account-dropdown" required>
-                  <option value="" disabled selected>Target Bank...</option>
-                  {% for name, code in bank_accounts.items() %}
-                  <option value="{{ code }}">{{ name }}</option>
-                  {% endfor %}
-                </select>
-                <button type="submit" class="btn btn-green btn-sm">Confirm</button>
-              </form>
-            </div>
-          </div>
-          {% endfor %}
-        </div>
-      </section>
-
-      <section class="card" id="analytics">
-        <div class="card-title">VAT Breakdown</div>
-        <div class="chart-wrap">
-          <canvas id="vatChart"></canvas>
-        </div>
-        <table class="history-table" style="margin-top:20px;">
-          <thead>
-            <tr>
-              <th>Region</th>
-              <th>Net</th>
-              <th>Tax</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for entry in vat.by_country %}
-            <tr>
-              <td><span class="badge badge-blue">{{ entry.country }}</span></td>
-              <td>{{ "%.2f"|format(entry.taxable_amount) }}</td>
-              <td style="color:var(--shopify-green); font-weight:700;">{{ "%.2f"|format(entry.tax_amount) }}</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </section>
+  <!-- Stats -->
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-label">Total Orders</div>
+      <div class="stat-value" style="color:var(--blue)">{{ summary.total_orders }}</div>
     </div>
-
-    <section class="card">
-      <div class="card-title">Recent Activity</div>
-      <table class="history-table">
-        <thead>
-          <tr>
-            <th>Order</th>
-            <th>Transparency / Reasoning</th>
-            <th>Sync</th>
-            <th>Financial</th>
-            <th>Amount</th>
-            <th>Audit</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for o in recent %}
-          <tr
-            class="{% if o.vat_reason and ('Reduced' in o.vat_reason or 'Export' in o.vat_reason) %}row-alert{% endif %}">
-            <td><strong>{{ o.shopify_order_name }}</strong><br><small style="color:var(--text-secondary);">{{
-                o.country_code }}</small></td>
-            <td>
-              <div style="font-size:12px; color:var(--electric-blue);">{{ o.vat_reason or "Automated Sync" }}</div>
-            </td>
-            <td><span class="badge {% if o.sync_status == 'synced' %}badge-green{% else %}badge-red{% endif %}">{{
-                o.sync_status }}</span></td>
-            <td><span class="badge {% if o.financial_status == 'paid' %}badge-green{% else %}badge-amber{% endif %}">{{
-                o.financial_status }}</span></td>
-            <td>
-              <strong>{{ "%.2f"|format(o.total_price) }}</strong> {{ o.currency }}<br>
-              <small style="color:var(--text-secondary);">≈ {{ o.chf_amount or "0.00" }} CHF</small>
-            </td>
-            <td>
-              <button onclick="viewLogs('{{ o.shopify_order_name }}')" class="btn btn-sync btn-sm"
-                style="padding:4px 8px;">View Logs</button>
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </section>
-  </main>
-
-  <div class="modal-overlay" id="logModal">
-    <div class="modal">
-      <div class="modal-header">
-        <h2 id="modalTitle">Order Logs</h2>
-        <button onclick="closeModal()"
-          style="background:none; border:none; color:white; font-size:20px; cursor:pointer;">&times;</button>
-      </div>
-      <div class="log-content" id="logContainer">
-        Fetching logs...
+    <div class="stat">
+      <div class="stat-label">Unpaid</div>
+      <div class="stat-value" style="color:var(--amber)">{{ summary.unpaid_count }}</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Unfulfilled</div>
+      <div class="stat-value" style="color:var(--red)">{{ summary.unfulfilled_count }}</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Revenue</div>
+      <div class="stat-value" style="font-size:18px; color:var(--green)">
+        {% for currency, amount in summary.revenue.items() %}
+          {{ "%.2f"|format(amount) }}
+          <small style="font-size:11px; color:var(--muted)">{{ currency }}</small><br>
+        {% else %}—
+        {% endfor %}
       </div>
     </div>
   </div>
 
-  <script>
-    const ctx = document.getElementById('vatChart').getContext('2d');
-    const vatData = {
-      labels: [{% for e in vat.by_country %}"{{ e.country }}", {% endfor %}],
-    datasets: [{
-      label: 'VAT Liability',
-      data: [{% for e in vat.by_country %}{{ e.tax_amount }}, {% endfor %}],
-      backgroundColor: 'rgba(63, 185, 80, 0.4)',
-        borderColor: '#3fb950',
-          borderWidth: 2,
-            borderRadius: 8
-            }]
-        };
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('all', this)">
+      All <span class="tab-count">{{ orders|length }}</span>
+    </button>
+    <button class="tab-btn" onclick="switchTab('unpaid', this)">
+      Unpaid <span class="tab-count">{{ summary.unpaid_count }}</span>
+    </button>
+    <button class="tab-btn" onclick="switchTab('unfulfilled', this)">
+      Unfulfilled <span class="tab-count">{{ summary.unfulfilled_count }}</span>
+    </button>
+  </div>
 
-    new Chart(ctx, {
-      type: 'bar',
-      data: vatData,
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          x: { grid: { display: false }, ticks: { color: '#8b949e' } },
-          y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#8b949e' } }
-        },
-        plugins: { legend: { display: false } }
-      }
-    });
+  <div id="tab-all"         class="tab-panel active"><div class="card"><div id="table-all"></div></div></div>
+  <div id="tab-unpaid"      class="tab-panel">        <div class="card"><div id="table-unpaid"></div></div></div>
+  <div id="tab-unfulfilled" class="tab-panel">        <div class="card"><div id="table-unfulfilled"></div></div></div>
+</main>
 
-    async function viewLogs(orderName) {
-      const modal = document.getElementById('logModal');
-      const container = document.getElementById('logContainer');
-      const title = document.getElementById('modalTitle');
+<!-- Order Detail Modal -->
+<div class="overlay" id="orderModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h2 id="modal-title">Order Detail</h2>
+      <button class="modal-close" onclick="closeModal()">&#x2715;</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
 
-      title.innerText = `Logs for ${orderName}`;
-      container.innerText = "Searching log files...";
-      modal.style.display = "flex";
+<!-- Inject server data as JS globals, then load logic -->
+<script>
+  window.ORDERS      = {{ orders       | tojson | safe }};
+  window.UNPAID      = {{ unpaid       | tojson | safe }};
+  window.UNFULFILLED = {{ unfulfilled  | tojson | safe }};
+  window.BANK        = {{ bank_accounts| tojson | safe }};
 
-      try {
-        // Encode the name (e.g. #1010 -> %231010) so it doesn't break the URL
-        const response = await fetch(`/logs/${encodeURIComponent(orderName)}`);
-        const data = await response.json();
+  // Shared helpers (used by dashboard.js)
+  function fmt(v) { return v != null ? Number(v).toFixed(2) : '—'; }
+  function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function parseJ(v) { try { return JSON.parse(v||'[]'); } catch { return []; } }
+</script>
+<script src="/static/dashboard.js"></script>
 
-        if (data && data.logs) {
-          container.innerHTML = data.logs.join('<br>');
-        } else {
-          container.innerText = "Unexpected response format from server.";
-        }
-      } catch (err) {
-        container.innerText = "Error fetching logs: " + err;
-      }
-    }
-
-    function closeModal() {
-      document.getElementById('logModal').style.display = "none";
-    }
-
-    window.onclick = function (event) {
-      const modal = document.getElementById('logModal');
-      if (event.target == modal) closeModal();
-    }
-  </script>
 </body>
-
 </html>

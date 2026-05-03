@@ -27,5 +27,5 @@ if __name__ == "__main__":
     if args.reload:
         cmd.append("--reload")
 
-    print(f"🚀 Starting Comatic Bridge dashboard at http://{args.host}:{args.port}")
+    print(f">> Starting Comatic Bridge dashboard at http://{args.host}:{args.port}")
     subprocess.run(cmd)
