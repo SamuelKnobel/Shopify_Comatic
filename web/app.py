@@ -3,10 +3,12 @@ web/app.py — FastAPI dashboard for Shopify order tracking.
 """
 import json
 from collections import defaultdict
-from fastapi import FastAPI, Request, Form, HTTPException
+from fastapi import FastAPI, Request, Form, HTTPException, Depends
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
+import secrets
 from loguru import logger
 
 from config import settings
@@ -20,6 +22,21 @@ from database import (
 from services.sync_engine import run_sync
 
 app = FastAPI(title="Shopify Order Dashboard")
+security = HTTPBasic()
+
+def check_auth(credentials: HTTPBasicCredentials = Depends(security)):
+    if not settings.dashboard_password:
+        return True
+    
+    correct_username = secrets.compare_digest(credentials.username, settings.dashboard_username)
+    correct_password = secrets.compare_digest(credentials.password, settings.dashboard_password)
+    if not (correct_username and correct_password):
+        raise HTTPException(
+            status_code=401,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+    return True
 
 
 @app.on_event("startup")
@@ -41,7 +58,7 @@ def _revenue_by_currency(orders: list[dict]) -> dict[str, float]:
 
 
 @app.get("/", response_class=HTMLResponse)
-async def dashboard(request: Request):
+async def dashboard(request: Request, _ = Depends(check_auth)):
     try:
         orders = await get_recent_orders(days=365)
 
@@ -76,7 +93,7 @@ async def dashboard(request: Request):
 
 
 @app.get("/api/order-items/{shopify_order_id}")
-async def get_order_items(shopify_order_id: str):
+async def get_order_items(shopify_order_id: str, _ = Depends(check_auth)):
     """Return line items for a given order as JSON (called by the modal)."""
     items = await get_items_for_order(shopify_order_id)
     return {"items": items}

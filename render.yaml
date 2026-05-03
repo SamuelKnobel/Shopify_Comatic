@@ -11,8 +11,12 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: "3.12"
+      - key: DASHBOARD_USERNAME
+        sync: false # Set this in Render Dashboard Environment settings
+      - key: DASHBOARD_PASSWORD
+        sync: false # Set this in Render Dashboard Environment settings
       - key: SQLITE_DB_PATH
-        value: /data/sync.db
+        value: /var/data/sync.db
       - key: SHOPIFY_SHOP
         sync: false # You will set this in Render UI
       - key: SHOPIFY_CLIENT_ID

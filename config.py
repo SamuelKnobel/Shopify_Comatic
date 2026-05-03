@@ -49,5 +49,9 @@ class Settings(BaseSettings):
     # ── Sync ─────────────────────────────────────────────────────────────────────
     sync_lookback_hours: int = 24
 
+    # Dashboard Protection
+    dashboard_username: str = ""
+    dashboard_password: str = ""  # If both are set, protection is enabled
+
 
 settings = Settings()
